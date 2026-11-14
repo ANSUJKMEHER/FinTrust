@@ -19,6 +19,21 @@ from app.schemas.retrieval import (
 )
 from app.schemas.permission import PermissionGrant, PermissionResponse
 from app.schemas.audit import AuditLogResponse
+from app.schemas.rag import (
+    RAGQueryRequest,
+    RAGQueryResponse,
+    CitationResponse,
+    VerifiedClaimResponse,
+    VerificationSummaryResponse,
+    CitationVerificationRequest,
+    CitationVerificationResponse
+)
+from app.schemas.intelligence import (
+    DocumentSummaryRequest,
+    DocumentSummaryResponse,
+    DocumentComparisonRequest,
+    DocumentComparisonResponse
+)
 
 __all__ = [
     "LoginRequest",
@@ -46,4 +61,15 @@ __all__ = [
     "PermissionGrant",
     "PermissionResponse",
     "AuditLogResponse",
+    "RAGQueryRequest",
+    "RAGQueryResponse",
+    "CitationResponse",
+    "VerifiedClaimResponse",
+    "VerificationSummaryResponse",
+    "CitationVerificationRequest",
+    "CitationVerificationResponse",
+    "DocumentSummaryRequest",
+    "DocumentSummaryResponse",
+    "DocumentComparisonRequest",
+    "DocumentComparisonResponse",
 ]

@@ -47,3 +47,35 @@ class ValidationError(FinTrustBaseException):
 class DocumentAccessDeniedError(PermissionDeniedError):
     """Raised when access to a specific document is rejected by ACL rules."""
     pass
+
+
+# Phase 4: LLM & Grounded Generation Exceptions
+
+class LLMProviderError(FinTrustBaseException):
+    """Raised when an LLM provider invocation fails."""
+    pass
+
+
+class LLMConfigurationError(LLMProviderError):
+    """Raised when an LLM provider is misconfigured or missing credentials."""
+    pass
+
+
+class LLMTimeoutError(LLMProviderError):
+    """Raised when an LLM request times out."""
+    pass
+
+
+class LLMRateLimitError(LLMProviderError):
+    """Raised when an LLM provider hits rate limits (HTTP 429)."""
+    pass
+
+
+class EvidenceSufficiencyError(FinTrustBaseException):
+    """Raised when retrieved evidence is insufficient to answer the query reliably."""
+    pass
+
+
+class CitationVerificationError(FinTrustBaseException):
+    """Raised when citation parsing or verification fails critically."""
+    pass

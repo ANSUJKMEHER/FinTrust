@@ -74,6 +74,22 @@ class Settings(BaseSettings):
     # Cross-Encoder Reranking Settings
     RERANKING_MODEL_NAME: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
+    # Phase 4: LLM Provider & Generation Settings
+    LLM_PROVIDER: str = "mock"  # Default to mock in development/testing; production overrides via env
+    LLM_MODEL_NAME: str = "gpt-4o-mini"
+    LLM_API_KEY: Optional[str] = None
+    LLM_API_BASE: Optional[str] = None
+    LLM_TEMPERATURE: float = 0.0  # Zero temperature for deterministic compliance responses
+    LLM_MAX_TOKENS: int = 1500
+    LLM_TIMEOUT_SECONDS: float = 30.0
+    LLM_MAX_RETRIES: int = 3
+    LLM_RETRY_BACKOFF_FACTOR: float = 1.5
+
+    # Phase 4: Context Construction & Sufficiency Settings
+    RAG_MAX_CONTEXT_TOKENS: int = 3000
+    RAG_SUFFICIENCY_MIN_SCORE: float = 0.30
+    RAG_REFUSAL_MESSAGE: str = "The provided documents do not contain sufficient evidence to answer this question reliably."
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
