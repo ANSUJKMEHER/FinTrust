@@ -85,6 +85,20 @@ class PermissionService:
         # CONFIDENTIAL and STRICTLY_CONFIDENTIAL require explicit permission grants
         return False, False
 
+    def get_accessible_document_ids(self, user: User) -> List[uuid.UUID]:
+        """Returns all document IDs the user is authorized to read within their tenant.
+        
+        Evaluates tenant boundaries, Admin overrides, user-specific grants,
+        role-specific grants, and classification fallbacks.
+        """
+        all_docs = self.db.query(Document).filter(Document.tenant_id == user.tenant_id).all()
+        accessible_ids: List[uuid.UUID] = []
+        for doc in all_docs:
+            can_read, _ = self.evaluate_access(doc, user)
+            if can_read:
+                accessible_ids.append(doc.id)
+        return accessible_ids
+
     def check_read_permission(self, document: Document, user: User) -> None:
         can_read, _ = self.evaluate_access(document, user)
         if not can_read:

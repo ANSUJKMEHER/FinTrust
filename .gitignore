@@ -42,3 +42,8 @@ htmlcov/
 
 # Docker
 .dockerignore
+
+# Artifacts & Local Storage
+*.whl
+storage/
+

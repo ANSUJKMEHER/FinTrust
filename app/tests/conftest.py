@@ -1,6 +1,10 @@
+import os
 import uuid
 from typing import Generator
 import pytest
+
+# Ensure tests run fast and deterministically without blocking on HuggingFace Hub downloads
+os.environ.setdefault("FINTRUST_USE_MOCK_EMBEDDINGS", "1")
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker

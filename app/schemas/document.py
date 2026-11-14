@@ -60,3 +60,15 @@ class DocumentResponse(BaseModel):
 
 class DocumentDetailResponse(DocumentResponse):
     versions: List[DocumentVersionResponse] = []
+
+
+class DocumentStatusResponse(BaseModel):
+    id: uuid.UUID
+    title: str
+    status: ProcessingStatus
+    error_message: Optional[str] = None
+    current_version_num: int
+    total_versions: int
+    total_chunks: int
+
+    model_config = {"from_attributes": True}

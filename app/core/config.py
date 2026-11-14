@@ -45,6 +45,35 @@ class Settings(BaseSettings):
     AUDIT_LOG_ENABLED: bool = True
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
 
+    # Ingestion & Storage Settings
+    MAX_UPLOAD_SIZE_BYTES: int = 52428800  # 50 MB
+    ALLOWED_EXTENSIONS: List[str] = [".pdf", ".docx", ".txt", ".md"]
+    ALLOWED_MIME_TYPES: List[str] = [
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "text/plain",
+        "text/markdown",
+        "application/octet-stream"  # Used by some browsers for markdown/plain text
+    ]
+    DOCUMENT_STORAGE_DIR: str = "storage/documents"
+
+    # Chunking & NLP Settings
+    CHUNK_TARGET_SIZE_TOKENS: int = 512
+    CHUNK_OVERLAP_TOKENS: int = 64
+
+    # Embedding & Vector Search Settings
+    EMBEDDING_MODEL_NAME: str = "BAAI/bge-small-en-v1.5"
+    EMBEDDING_DIMENSION: int = 384
+
+    # Full-Text & Hybrid Retrieval Settings
+    RRF_K_CONSTANT: int = 60
+    DENSE_SEARCH_LIMIT: int = 25
+    SPARSE_SEARCH_LIMIT: int = 25
+    RERANK_TOP_K: int = 5
+
+    # Cross-Encoder Reranking Settings
+    RERANKING_MODEL_NAME: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

@@ -6,7 +6,16 @@ from app.schemas.document import (
     DocumentUpdate,
     DocumentResponse,
     DocumentDetailResponse,
-    DocumentVersionResponse
+    DocumentVersionResponse,
+    DocumentStatusResponse
+)
+from app.schemas.chunk import ChunkResponse
+from app.schemas.retrieval import (
+    DenseSearchRequest,
+    SparseSearchRequest,
+    HybridSearchRequest,
+    RetrievedChunkResponse,
+    SearchResponse
 )
 from app.schemas.permission import PermissionGrant, PermissionResponse
 from app.schemas.audit import AuditLogResponse
@@ -27,6 +36,13 @@ __all__ = [
     "DocumentResponse",
     "DocumentDetailResponse",
     "DocumentVersionResponse",
+    "DocumentStatusResponse",
+    "ChunkResponse",
+    "DenseSearchRequest",
+    "SparseSearchRequest",
+    "HybridSearchRequest",
+    "RetrievedChunkResponse",
+    "SearchResponse",
     "PermissionGrant",
     "PermissionResponse",
     "AuditLogResponse",

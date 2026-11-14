@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from app.db.models.tenant import Tenant
     from app.db.models.user import User
     from app.db.models.permission import DocumentPermission
+    from app.db.models.document_chunk import DocumentChunk
 
 
 class DocumentClassification(str, enum.Enum):
@@ -31,10 +32,13 @@ class DocumentClassification(str, enum.Enum):
 
 
 class ProcessingStatus(str, enum.Enum):
+    UPLOADED = "UPLOADED"
     PENDING = "PENDING"
     PARSING = "PARSING"
     CHUNKING = "CHUNKING"
     EMBEDDING = "EMBEDDING"
+    PROCESSING = "PROCESSING"
+    INDEXED = "INDEXED"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
 
@@ -103,6 +107,11 @@ class Document(Base, TimestampMixin):
         back_populates="document",
         cascade="all, delete-orphan"
     )
+    chunks: Mapped[List["DocumentChunk"]] = relationship(
+        "DocumentChunk",
+        back_populates="document",
+        cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "content_hash", name="uq_tenant_doc_content_hash"),
@@ -145,6 +154,12 @@ class DocumentVersion(Base):
 
     # Relationships
     document: Mapped["Document"] = relationship("Document", back_populates="versions")
+    chunks: Mapped[List["DocumentChunk"]] = relationship(
+        "DocumentChunk",
+        back_populates="version",
+        cascade="all, delete-orphan",
+        order_by="DocumentChunk.chunk_index.asc()"
+    )
 
     __table_args__ = (
         UniqueConstraint("document_id", "version_num", name="uq_doc_version_num"),
