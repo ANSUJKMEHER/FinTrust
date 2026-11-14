@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: fintrust_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fintrust_user
+      POSTGRES_PASSWORD: fintrust_secure_password
+      POSTGRES_DB: fintrust_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fintrust_user -d fintrust_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fintrust_backend
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://fintrust_user:fintrust_secure_password@postgres:5432/fintrust_db
+      - JWT_SECRET_KEY=production_grade_secret_key_change_me_to_64_random_bytes_min
+      - ENVIRONMENT=development
+      - DEBUG=true
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
+volumes:
+  postgres_data:
