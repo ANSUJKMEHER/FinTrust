@@ -8,6 +8,7 @@ Create Date: 2026-11-14
 from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
+from app.db.base import GUID
 
 revision: str = '001_initial_schema'
 down_revision: Union[str, None] = None
@@ -19,7 +20,7 @@ def upgrade() -> None:
     # 1. Tenants Table
     op.create_table(
         'tenants',
-        sa.Column('id', sa.CHAR(36), primary_key=True),
+        sa.Column('id', GUID(), primary_key=True),
         sa.Column('name', sa.String(255), nullable=False),
         sa.Column('slug', sa.String(100), nullable=False, unique=True),
         sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('true')),
@@ -49,8 +50,8 @@ def upgrade() -> None:
     # 3. Users Table
     op.create_table(
         'users',
-        sa.Column('id', sa.CHAR(36), primary_key=True),
-        sa.Column('tenant_id', sa.CHAR(36), sa.ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('id', GUID(), primary_key=True),
+        sa.Column('tenant_id', GUID(), sa.ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False),
         sa.Column('email', sa.String(255), nullable=False),
         sa.Column('hashed_password', sa.String(255), nullable=False),
         sa.Column('full_name', sa.String(255), nullable=False),
@@ -64,15 +65,15 @@ def upgrade() -> None:
     # 4. User Roles Association Table
     op.create_table(
         'user_roles',
-        sa.Column('user_id', sa.CHAR(36), sa.ForeignKey('users.id', ondelete='CASCADE'), primary_key=True),
+        sa.Column('user_id', GUID(), sa.ForeignKey('users.id', ondelete='CASCADE'), primary_key=True),
         sa.Column('role_id', sa.String(50), sa.ForeignKey('roles.id', ondelete='CASCADE'), primary_key=True)
     )
 
     # 5. Documents Table
     op.create_table(
         'documents',
-        sa.Column('id', sa.CHAR(36), primary_key=True),
-        sa.Column('tenant_id', sa.CHAR(36), sa.ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('id', GUID(), primary_key=True),
+        sa.Column('tenant_id', GUID(), sa.ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False),
         sa.Column('title', sa.String(500), nullable=False),
         sa.Column('original_filename', sa.String(500), nullable=False),
         sa.Column('mime_type', sa.String(100), nullable=False),
@@ -83,7 +84,7 @@ def upgrade() -> None:
         sa.Column('current_version_num', sa.Integer(), nullable=False, server_default='1'),
         sa.Column('status', sa.String(50), nullable=False, server_default='PENDING'),
         sa.Column('error_message', sa.Text(), nullable=True),
-        sa.Column('created_by_id', sa.CHAR(36), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
+        sa.Column('created_by_id', GUID(), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.UniqueConstraint('tenant_id', 'content_hash', name='uq_tenant_doc_content_hash')
@@ -95,13 +96,13 @@ def upgrade() -> None:
     # 6. Document Versions Table
     op.create_table(
         'document_versions',
-        sa.Column('id', sa.CHAR(36), primary_key=True),
-        sa.Column('document_id', sa.CHAR(36), sa.ForeignKey('documents.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('id', GUID(), primary_key=True),
+        sa.Column('document_id', GUID(), sa.ForeignKey('documents.id', ondelete='CASCADE'), nullable=False),
         sa.Column('version_num', sa.Integer(), nullable=False),
         sa.Column('storage_path', sa.String(1000), nullable=False),
         sa.Column('total_pages', sa.Integer(), nullable=True),
         sa.Column('total_chunks', sa.Integer(), nullable=False, server_default='0'),
-        sa.Column('created_by_id', sa.CHAR(36), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
+        sa.Column('created_by_id', GUID(), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.UniqueConstraint('document_id', 'version_num', name='uq_doc_version_num')
     )
@@ -110,11 +111,11 @@ def upgrade() -> None:
     # 7. Document Permissions Table
     op.create_table(
         'document_permissions',
-        sa.Column('id', sa.CHAR(36), primary_key=True),
-        sa.Column('document_id', sa.CHAR(36), sa.ForeignKey('documents.id', ondelete='CASCADE'), nullable=False),
-        sa.Column('tenant_id', sa.CHAR(36), sa.ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('id', GUID(), primary_key=True),
+        sa.Column('document_id', GUID(), sa.ForeignKey('documents.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('tenant_id', GUID(), sa.ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False),
         sa.Column('role_id', sa.String(50), sa.ForeignKey('roles.id', ondelete='CASCADE'), nullable=True),
-        sa.Column('user_id', sa.CHAR(36), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=True),
+        sa.Column('user_id', GUID(), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=True),
         sa.Column('can_read', sa.Boolean(), nullable=False, server_default=sa.text('true')),
         sa.Column('can_write', sa.Boolean(), nullable=False, server_default=sa.text('false')),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
@@ -128,9 +129,9 @@ def upgrade() -> None:
     # 8. Audit Logs Table
     op.create_table(
         'audit_logs',
-        sa.Column('id', sa.CHAR(36), primary_key=True),
-        sa.Column('tenant_id', sa.CHAR(36), sa.ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False),
-        sa.Column('user_id', sa.CHAR(36), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
+        sa.Column('id', GUID(), primary_key=True),
+        sa.Column('tenant_id', GUID(), sa.ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('user_id', GUID(), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
         sa.Column('action', sa.String(100), nullable=False),
         sa.Column('resource_type', sa.String(50), nullable=False),
         sa.Column('resource_id', sa.String(255), nullable=True),
