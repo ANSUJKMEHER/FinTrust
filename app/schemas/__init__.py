@@ -34,6 +34,17 @@ from app.schemas.intelligence import (
     DocumentComparisonRequest,
     DocumentComparisonResponse
 )
+from app.schemas.agentic import (
+    AgenticResearchRequest,
+    AgenticComplianceAuditRequest,
+    AgenticDocumentInvestigationRequest,
+    HumanApprovalRequest,
+    HumanApprovalResponse,
+    WorkflowTraceItemResponse,
+    WorkflowTraceResponse,
+    AgenticWorkflowResponse,
+    AgenticHealthResponse
+)
 
 __all__ = [
     "LoginRequest",
@@ -72,4 +83,13 @@ __all__ = [
     "DocumentSummaryResponse",
     "DocumentComparisonRequest",
     "DocumentComparisonResponse",
+    "AgenticResearchRequest",
+    "AgenticComplianceAuditRequest",
+    "AgenticDocumentInvestigationRequest",
+    "HumanApprovalRequest",
+    "HumanApprovalResponse",
+    "WorkflowTraceItemResponse",
+    "WorkflowTraceResponse",
+    "AgenticWorkflowResponse",
+    "AgenticHealthResponse",
 ]

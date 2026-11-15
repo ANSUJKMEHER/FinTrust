@@ -6,6 +6,7 @@ from app.db.models.document import Document, DocumentVersion, DocumentClassifica
 from app.db.models.document_chunk import DocumentChunk
 from app.db.models.permission import DocumentPermission
 from app.db.models.audit import AuditLog
+from app.db.models.workflow import AgenticWorkflow, AgenticExecutionTrace, WorkflowTaskType, WorkflowStatus, ApprovalStatus
 
 __all__ = [
     "Base",
@@ -20,4 +21,9 @@ __all__ = [
     "ProcessingStatus",
     "DocumentPermission",
     "AuditLog",
+    "AgenticWorkflow",
+    "AgenticExecutionTrace",
+    "WorkflowTaskType",
+    "WorkflowStatus",
+    "ApprovalStatus",
 ]
