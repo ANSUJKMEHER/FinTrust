@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.dependencies import get_current_user
 from app.core.exceptions import AuthenticationError, InactiveUserError
+from app.core.rate_limiter import RateLimitDependency
 from app.db.models.user import User
 from app.db.session import get_db
 from app.schemas.auth import LoginRequest, RefreshTokenRequest, TokenResponse
@@ -11,8 +13,14 @@ from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
+auth_rate_limit = RateLimitDependency(
+    max_requests=settings.RATE_LIMIT_AUTH_PER_MINUTE,
+    window_seconds=60,
+    scope="auth_login"
+)
 
-@router.post("/login", response_model=TokenResponse)
+
+@router.post("/login", response_model=TokenResponse, dependencies=[Depends(auth_rate_limit)])
 def login(
     data: LoginRequest,
     request: Request,

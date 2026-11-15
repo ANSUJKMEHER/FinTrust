@@ -46,4 +46,6 @@ htmlcov/
 # Artifacts & Local Storage
 *.whl
 storage/
+backups/*.dump
+backups/*.json
 

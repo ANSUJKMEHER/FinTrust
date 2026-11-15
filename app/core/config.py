@@ -1,6 +1,6 @@
 import os
 from typing import List, Optional
-from pydantic import computed_field
+from pydantic import computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -89,6 +89,33 @@ class Settings(BaseSettings):
     RAG_MAX_CONTEXT_TOKENS: int = 3000
     RAG_SUFFICIENCY_MIN_SCORE: float = 0.30
     RAG_REFUSAL_MESSAGE: str = "The provided documents do not contain sufficient evidence to answer this question reliably."
+
+    # Production Database Pool Tuning
+    DB_POOL_SIZE: int = 20
+    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_TIMEOUT: int = 30
+    DB_POOL_RECYCLE: int = 1800
+
+    # Production Rate Limiting
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_AUTH_PER_MINUTE: int = 15
+    RATE_LIMIT_RAG_PER_MINUTE: int = 60
+    RATE_LIMIT_GENERAL_PER_MINUTE: int = 120
+
+    @model_validator(mode="after")
+    def validate_production_configuration(self) -> "Settings":
+        if self.ENVIRONMENT.lower() in ("production", "prod"):
+            # Enforce JWT Secret Key length and complexity
+            if len(self.JWT_SECRET_KEY) < 32:
+                raise ValueError("In production, JWT_SECRET_KEY must be at least 32 characters long.")
+            insecure_markers = ["insecure", "default", "change_in_production", "dev_secret", "secret123"]
+            if any(marker in self.JWT_SECRET_KEY.lower() for marker in insecure_markers):
+                raise ValueError("In production, JWT_SECRET_KEY cannot contain default or insecure placeholders.")
+            if self.DEBUG:
+                raise ValueError("In production, DEBUG must be set to False.")
+            if not self.POSTGRES_PASSWORD or len(self.POSTGRES_PASSWORD) < 8:
+                raise ValueError("In production, POSTGRES_PASSWORD must be configured and at least 8 characters.")
+        return self
 
     model_config = SettingsConfigDict(
         env_file=".env",

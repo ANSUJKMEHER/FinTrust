@@ -27,14 +27,31 @@ class FileValidationService:
         "docx": b"PK\x03\x04",
     }
 
+    # Executable or script extensions that must never precede allowed extensions (e.g. file.exe.pdf)
+    DANGEROUS_EXTENSIONS = {
+        ".exe", ".bat", ".cmd", ".sh", ".py", ".js", ".vbs", ".ps1", ".msi", ".dll", ".so", ".bin"
+    }
+
     @classmethod
     def sanitize_filename(cls, filename: str) -> str:
-        """Strips dangerous characters and path traversal sequences from user-supplied filenames."""
-        clean_name = os.path.basename(filename)
+        """Strips dangerous characters, separators, and path traversal sequences from user filenames."""
+        # Normalize separators
+        clean_name = filename.replace("\\", "/").strip()
+        clean_name = os.path.basename(clean_name)
+        
         # Remove any null bytes or non-printable characters
         clean_name = re.sub(r"[^\w\s\.-]", "_", clean_name)
+        
         # Prevent hidden files
         clean_name = clean_name.lstrip(".")
+        
+        # Defend against double extension tricks (e.g., invoice.exe.pdf)
+        parts = clean_name.split(".")
+        if len(parts) > 2:
+            for part in parts[1:-1]:
+                if f".{part.lower()}" in cls.DANGEROUS_EXTENSIONS:
+                    raise FileValidationError(f"Dangerous file extension pattern detected: '.{part}'")
+
         return clean_name or "uploaded_document"
 
     @classmethod
@@ -68,7 +85,7 @@ class FileValidationService:
                 f"Unsupported file extension '{suffix}'. Allowed: {settings.ALLOWED_EXTENSIONS}"
             )
 
-        # Magic bytes verification
+        # Magic bytes and content integrity verification
         if suffix == ".pdf":
             if not file_bytes.startswith(cls.MAGIC_BYTES["pdf"]):
                 raise FileValidationError("File corrupt or invalid: missing valid PDF signature (%PDF-).")
@@ -78,10 +95,14 @@ class FileValidationService:
                 raise FileValidationError("File corrupt or invalid: missing valid DOCX (PK) zip signature.")
             validated_mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         elif suffix in [".txt", ".md"]:
-            # Check for excessive binary null bytes indicative of corrupted/binary file
+            # Check for binary null bytes indicative of non-text file
             null_count = file_bytes[:1024].count(b"\x00")
             if null_count > 0:
                 raise FileValidationError("Text/Markdown file contains invalid binary content.")
+            try:
+                file_bytes.decode("utf-8")
+            except UnicodeDecodeError:
+                raise FileValidationError("Text file is not valid UTF-8 encoded text.")
             validated_mime = "text/plain" if suffix == ".txt" else "text/markdown"
         else:
             raise FileValidationError(f"Unhandled file type for extension: {suffix}")

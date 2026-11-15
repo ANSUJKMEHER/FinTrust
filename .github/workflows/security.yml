@@ -1,0 +1,55 @@
+name: FinTrust DevSecOps - Security & Vulnerability Audit
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  schedule:
+    - cron: '0 4 * * 1' # Run weekly Monday at 04:00 UTC
+
+jobs:
+  static-security-analysis:
+    name: Bandit Python AST Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Bandit & Pip-Audit
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit pip-audit
+
+      - name: Run Bandit AST Scanner
+        run: |
+          bandit -r app/ -ll -ii --format json -o bandit-report.json || true
+          bandit -r app/ -ll -ii
+
+      - name: Upload Bandit Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-security-report
+          path: bandit-report.json
+
+  frontend-dependency-audit:
+    name: Frontend Dependency Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run NPM Audit
+        working-directory: ./frontend
+        run: |
+          npm audit --audit-level=high || true

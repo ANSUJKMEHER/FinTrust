@@ -1,0 +1,125 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: fintrust-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fintrust_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Database password is required}
+      POSTGRES_DB: ${POSTGRES_DB:-fintrust_db}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    networks:
+      - fintrust-backend-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fintrust_user} -d ${POSTGRES_DB:-fintrust_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4096M
+        reservations:
+          cpus: '0.5'
+          memory: 1024M
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    image: fintrust-backend:1.0.0
+    container_name: fintrust-backend-prod
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      PROJECT_NAME: "FinTrust RAG"
+      POSTGRES_SERVER: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-fintrust_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Database password is required}
+      POSTGRES_DB: ${POSTGRES_DB:-fintrust_db}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT secret key must be set for production}
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+      REFRESH_TOKEN_EXPIRE_DAYS: 7
+      AUDIT_LOG_ENABLED: "true"
+      RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_AUTH_PER_MINUTE: 15
+      RATE_LIMIT_RAG_PER_MINUTE: 60
+      RATE_LIMIT_GENERAL_PER_MINUTE: 120
+      DB_POOL_SIZE: 20
+      DB_MAX_OVERFLOW: 10
+      DB_POOL_TIMEOUT: 30
+      DB_POOL_RECYCLE: 1800
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      LLM_MODEL_NAME: ${LLM_MODEL_NAME:-gpt-4o-mini}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LOG_FORMAT: json
+    volumes:
+      - document_prod_storage:/app/storage/documents
+    networks:
+      - fintrust-backend-net
+      - fintrust-frontend-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    image: fintrust-frontend:1.0.0
+    container_name: fintrust-frontend-prod
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - fintrust-frontend-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.2'
+          memory: 128M
+
+networks:
+  fintrust-frontend-net:
+    driver: bridge
+  fintrust-backend-net:
+    driver: bridge
+
+volumes:
+  postgres_prod_data:
+    driver: local
+  document_prod_storage:
+    driver: local

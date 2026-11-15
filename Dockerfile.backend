@@ -1,0 +1,57 @@
+# Stage 1: Build dependencies and wheels
+FROM python:3.11-slim as builder
+
+WORKDIR /build
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    gcc \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# Stage 2: Hardened, minimal production runtime
+FROM python:3.11-slim as runner
+
+WORKDIR /app
+
+# Install minimal runtime shared libraries (libpq for postgresql client)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy installed Python packages from builder
+COPY --from=builder /install /usr/local
+
+# Create non-root application user with explicit UID/GID
+RUN groupadd -g 10001 fintrust && \
+    useradd -u 10001 -g fintrust -s /bin/false -m appuser
+
+# Create storage directory and grant ownership
+RUN mkdir -p /app/storage/documents && \
+    chown -R appuser:fintrust /app
+
+# Copy application source code
+COPY --chown=appuser:fintrust app /app/app
+COPY --chown=appuser:fintrust alembic.ini /app/alembic.ini
+COPY --chown=appuser:fintrust migrations /app/migrations
+
+# Switch to unprivileged non-root user
+USER appuser
+
+# Expose FastAPI application port
+EXPOSE 8000
+
+# Docker healthcheck
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8000/health/live || exit 1
+
+# Production Gunicorn / Uvicorn multi-worker entrypoint
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--proxy-headers", "--forwarded-allow-ips", "*"]

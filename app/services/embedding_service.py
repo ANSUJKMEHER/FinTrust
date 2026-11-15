@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import math
+import threading
 from typing import List, Optional
 import numpy as np
 
@@ -15,6 +16,7 @@ class EmbeddingService:
     _model = None
     _model_name: str = settings.EMBEDDING_MODEL_NAME
     _dimension: int = settings.EMBEDDING_DIMENSION
+    _load_lock = threading.Lock()
 
     def __init__(
         self,
@@ -26,25 +28,27 @@ class EmbeddingService:
 
     @classmethod
     def get_model(cls, model_name: str):
-        """Loads and caches the SentenceTransformer model once across the application process."""
+        """Loads and caches the SentenceTransformer model once across the application process (thread-safe)."""
         import os
         if os.environ.get("FINTRUST_USE_MOCK_EMBEDDINGS") == "1":
             cls._model = False
             return False
 
         if cls._model is None or cls._model_name != model_name:
-            try:
-                from sentence_transformers import SentenceTransformer
-                logger.info(f"Loading SentenceTransformer model '{model_name}'...")
-                cls._model = SentenceTransformer(model_name)
-                cls._model_name = model_name
-                logger.info(f"Model '{model_name}' loaded successfully.")
-            except Exception as e:
-                logger.warning(
-                    f"Could not load SentenceTransformer '{model_name}': {e}. "
-                    "Falling back to deterministic pseudo-embedding mode."
-                )
-                cls._model = False  # Mark as unavailable
+            with cls._load_lock:
+                if cls._model is None or cls._model_name != model_name:
+                    try:
+                        from sentence_transformers import SentenceTransformer
+                        logger.info(f"Loading SentenceTransformer model '{model_name}'...")
+                        cls._model = SentenceTransformer(model_name)
+                        cls._model_name = model_name
+                        logger.info(f"Model '{model_name}' loaded successfully.")
+                    except Exception as e:
+                        logger.warning(
+                            f"Could not load SentenceTransformer '{model_name}': {e}. "
+                            "Falling back to deterministic pseudo-embedding mode."
+                        )
+                        cls._model = False  # Mark as unavailable
         return cls._model
 
     def _deterministic_embedding(self, text: str) -> List[float]:

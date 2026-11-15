@@ -7,14 +7,26 @@ from app.core.config import settings
 database_url = settings.SQLALCHEMY_DATABASE_URI
 
 connect_args = {}
+engine_kwargs = {
+    "connect_args": connect_args,
+    "pool_pre_ping": True,
+    "echo": settings.DEBUG
+}
+
 if database_url.startswith("sqlite"):
     connect_args["check_same_thread"] = False
+else:
+    # Production PostgreSQL connection pool hardening
+    engine_kwargs.update({
+        "pool_size": settings.DB_POOL_SIZE,
+        "max_overflow": settings.DB_MAX_OVERFLOW,
+        "pool_timeout": settings.DB_POOL_TIMEOUT,
+        "pool_recycle": settings.DB_POOL_RECYCLE
+    })
 
 engine = create_engine(
     database_url,
-    connect_args=connect_args,
-    pool_pre_ping=True,
-    echo=settings.DEBUG
+    **engine_kwargs
 )
 
 # Enforce foreign key constraints on SQLite connections for robust testing

@@ -1,5 +1,6 @@
 import logging
 import math
+import threading
 from typing import Any, Dict, List, Optional
 
 from app.core.config import settings
@@ -12,31 +13,34 @@ class RerankingService:
 
     _model = None
     _model_name: str = settings.RERANKING_MODEL_NAME
+    _load_lock = threading.Lock()
 
     def __init__(self, model_name: str = settings.RERANKING_MODEL_NAME):
         self.model_name = model_name
 
     @classmethod
     def get_model(cls, model_name: str):
-        """Loads and caches the CrossEncoder model once across application lifecycle."""
+        """Loads and caches the CrossEncoder model once across application lifecycle (thread-safe)."""
         import os
         if os.environ.get("FINTRUST_USE_MOCK_EMBEDDINGS") == "1":
             cls._model = False
             return False
 
         if cls._model is None or cls._model_name != model_name:
-            try:
-                from sentence_transformers import CrossEncoder
-                logger.info(f"Loading CrossEncoder model '{model_name}'...")
-                cls._model = CrossEncoder(model_name)
-                cls._model_name = model_name
-                logger.info(f"CrossEncoder '{model_name}' loaded successfully.")
-            except Exception as e:
-                logger.warning(
-                    f"Could not load CrossEncoder '{model_name}': {e}. "
-                    "Using lexical-semantic fallback reranking."
-                )
-                cls._model = False
+            with cls._load_lock:
+                if cls._model is None or cls._model_name != model_name:
+                    try:
+                        from sentence_transformers import CrossEncoder
+                        logger.info(f"Loading CrossEncoder model '{model_name}'...")
+                        cls._model = CrossEncoder(model_name)
+                        cls._model_name = model_name
+                        logger.info(f"CrossEncoder '{model_name}' loaded successfully.")
+                    except Exception as e:
+                        logger.warning(
+                            f"Could not load CrossEncoder '{model_name}': {e}. "
+                            "Using lexical-semantic fallback reranking."
+                        )
+                        cls._model = False
         return cls._model
 
     def _fallback_scoring(self, query: str, content: str, rrf_score: float) -> float:
