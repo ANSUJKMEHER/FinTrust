@@ -5,9 +5,9 @@ document investigations, execution traces, and human approval workflows.
 """
 
 import logging
-from typing import List
+from typing import List, Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
@@ -24,6 +24,7 @@ from app.schemas.agentic import (
     WorkflowTraceItemResponse,
     AgenticWorkflowResponse,
     AgenticHealthResponse,
+    MCPToolInfoResponse,
 )
 from app.agentic.orchestrator import AgenticOrchestrator
 from app.agentic.mcp.server import fintrust_mcp_server
@@ -150,6 +151,178 @@ def conduct_document_investigation(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Document investigation failed: {str(e)}",
         )
+
+
+@router.get("/workflows", response_model=List[AgenticWorkflowResponse])
+def list_workflows(
+    task_type: Optional[WorkflowTaskType] = None,
+    status: Optional[WorkflowStatus] = None,
+    approval_status: Optional[ApprovalStatus] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> List[AgenticWorkflowResponse]:
+    """
+    List agentic workflows for the authenticated tenant with optional filtering.
+    """
+    orchestrator = AgenticOrchestrator(db)
+    workflows = orchestrator.list_workflows(
+        user=current_user,
+        task_type=task_type,
+        workflow_status=status,
+        approval_status=approval_status,
+        skip=skip,
+        limit=limit,
+    )
+    return [_map_workflow_to_response(wf) for wf in workflows]
+
+
+@router.get("/tools", response_model=List[MCPToolInfoResponse])
+def list_mcp_tools() -> List[MCPToolInfoResponse]:
+    """
+    Lists all 19 official registered MCP tools categorized by capability domain.
+    """
+    tools = [
+        # Research
+        MCPToolInfoResponse(
+            name="search_documents",
+            category="Research",
+            description="Execute hybrid search over documents within the authenticated tenant boundary.",
+            parameters={"query": "string (required)", "top_k": "integer (optional, default 5)", "filters": "object (optional)"},
+            is_safe=True,
+        ),
+        MCPToolInfoResponse(
+            name="hybrid_search",
+            category="Research",
+            description="Perform hybrid vector + full-text search with customizable rank weights.",
+            parameters={"query": "string (required)", "top_k": "integer (default 5)", "dense_weight": "float", "sparse_weight": "float"},
+            is_safe=True,
+        ),
+        MCPToolInfoResponse(
+            name="dense_search",
+            category="Research",
+            description="Perform dense semantic vector retrieval via pgvector embeddings.",
+            parameters={"query": "string (required)", "top_k": "integer (default 5)"},
+            is_safe=True,
+        ),
+        MCPToolInfoResponse(
+            name="sparse_search",
+            category="Research",
+            description="Perform sparse BM25 / PostgreSQL Full-Text Search over indexed document chunks.",
+            parameters={"query": "string (required)", "top_k": "integer (default 5)"},
+            is_safe=True,
+        ),
+        MCPToolInfoResponse(
+            name="get_document_metadata",
+            category="Research",
+            description="Retrieve document metadata, verifying tenant isolation and document-level permissions.",
+            parameters={"document_id": "UUID (required)"},
+            is_safe=True,
+        ),
+        MCPToolInfoResponse(
+            name="get_document_content",
+            category="Research",
+            description="Retrieve full reconstructed text content of a document from its ordered chunks.",
+            parameters={"document_id": "UUID (required)"},
+            is_safe=True,
+        ),
+        MCPToolInfoResponse(
+            name="get_document_chunks",
+            category="Research",
+            description="Retrieve all chunks with metadata for an authorized document.",
+            parameters={"document_id": "UUID (required)"},
+            is_safe=True,
+        ),
+        # Intelligence
+        MCPToolInfoResponse(
+            name="summarize_document",
+            category="Intelligence",
+            description="Produces an evidence-grounded compliance and financial intelligence summary.",
+            parameters={"document_id": "UUID (required)"},
+            is_safe=True,
+        ),
+        MCPToolInfoResponse(
+            name="compare_documents",
+            category="Intelligence",
+            description="Performs structured comparative analysis between two authorized compliance documents.",
+            parameters={"doc1_id": "UUID (required)", "doc2_id": "UUID (required)"},
+            is_safe=True,
+        ),
+        MCPToolInfoResponse(
+            name="extract_regulatory_obligations",
+            category="Intelligence",
+            description="Extracts statutory compliance obligations from retrieved document chunks.",
+            parameters={"document_id": "UUID (required)", "statute_name": "string (optional)"},
+            is_safe=True,
+        ),
+        MCPToolInfoResponse(
+            name="identify_financial_thresholds",
+            category="Intelligence",
+            description="Identifies quantitative financial thresholds, reporting limits, and monetary triggers.",
+            parameters={"document_id": "UUID (required)"},
+            is_safe=True,
+        ),
+        # Verification
+        MCPToolInfoResponse(
+            name="verify_claim",
+            category="Verification",
+            description="Verifies factual claims against retrieved evidence chunks with confidence scoring.",
+            parameters={"claim_text": "string (required)", "chunk_ids": "list[UUID] (required)"},
+            is_safe=True,
+        ),
+        MCPToolInfoResponse(
+            name="verify_citation",
+            category="Verification",
+            description="Verifies citation validity, evidence binding, and text span alignment.",
+            parameters={"citation_id": "string (required)", "evidence_id": "string (required)"},
+            is_safe=True,
+        ),
+        MCPToolInfoResponse(
+            name="check_numeric_claim",
+            category="Verification",
+            description="Cross-checks numeric values, percentages, and currencies against evidence text.",
+            parameters={"claim_number": "string (required)", "evidence_text": "string (required)"},
+            is_safe=True,
+        ),
+        MCPToolInfoResponse(
+            name="check_regulatory_reference",
+            category="Verification",
+            description="Validates regulatory citations (e.g. BSA, AML, GDPR) against authoritative references.",
+            parameters={"reference_text": "string (required)"},
+            is_safe=True,
+        ),
+        MCPToolInfoResponse(
+            name="inspect_evidence_support",
+            category="Verification",
+            description="Analyzes evidence strength and flags contradictory or ambiguous clauses.",
+            parameters={"claim": "string (required)", "evidence_snippets": "list[string] (required)"},
+            is_safe=True,
+        ),
+        # Workflow
+        MCPToolInfoResponse(
+            name="get_workflow_status",
+            category="Workflow",
+            description="Retrieves current execution state of an ongoing agentic workflow.",
+            parameters={"workflow_id": "UUID (required)"},
+            is_safe=True,
+        ),
+        MCPToolInfoResponse(
+            name="request_human_approval",
+            category="Workflow",
+            description="Flags a workflow requiring compliance officer or auditor human approval.",
+            parameters={"workflow_id": "UUID (required)", "reason": "string (required)"},
+            is_safe=True,
+        ),
+        MCPToolInfoResponse(
+            name="record_agent_finding",
+            category="Workflow",
+            description="Records structured analytical finding with evidence references into workflow state.",
+            parameters={"finding_type": "string (required)", "details": "object (required)"},
+            is_safe=True,
+        ),
+    ]
+    return tools
 
 
 @router.get("/workflows/{workflow_id}", response_model=AgenticWorkflowResponse)

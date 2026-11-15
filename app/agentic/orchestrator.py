@@ -327,3 +327,23 @@ class AgenticOrchestrator:
             .where(AgenticExecutionTrace.workflow_id == workflow_id)
             .order_by(AgenticExecutionTrace.step_number.asc())
         ).scalars().all()
+
+    def list_workflows(
+        self,
+        user: User,
+        task_type: Optional[WorkflowTaskType] = None,
+        workflow_status: Optional[WorkflowStatus] = None,
+        approval_status: Optional[ApprovalStatus] = None,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> List[AgenticWorkflow]:
+        """List workflows ensuring strict tenant isolation."""
+        stmt = select(AgenticWorkflow).where(AgenticWorkflow.tenant_id == user.tenant_id)
+        if task_type:
+            stmt = stmt.where(AgenticWorkflow.task_type == task_type)
+        if workflow_status:
+            stmt = stmt.where(AgenticWorkflow.workflow_status == workflow_status)
+        if approval_status:
+            stmt = stmt.where(AgenticWorkflow.approval_status == approval_status)
+        stmt = stmt.order_by(AgenticWorkflow.created_at.desc()).offset(skip).limit(limit)
+        return list(self.db.execute(stmt).scalars().all())

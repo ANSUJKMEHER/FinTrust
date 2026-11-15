@@ -94,3 +94,11 @@ class AgenticHealthResponse(BaseModel):
     max_workflow_iterations: int
     supervisor_orchestrator: str
     checkpointing: str
+
+
+class MCPToolInfoResponse(BaseModel):
+    name: str
+    category: str
+    description: str
+    parameters: Dict[str, Any]
+    is_safe: bool = True
