@@ -1,0 +1,74 @@
+{
+  "version": "2026-03-enterprise",
+  "currency": "USD",
+  "rates_per_million_tokens": {
+    "openai": {
+      "gpt-4o-mini": {
+        "input_per_million": "0.150000",
+        "cached_input_per_million": "0.075000",
+        "output_per_million": "0.600000"
+      },
+      "gpt-4o": {
+        "input_per_million": "2.500000",
+        "cached_input_per_million": "1.250000",
+        "output_per_million": "10.000000"
+      },
+      "gpt-4-turbo": {
+        "input_per_million": "10.000000",
+        "cached_input_per_million": "10.000000",
+        "output_per_million": "30.000000"
+      }
+    },
+    "anthropic": {
+      "claude-3-5-sonnet-20241022": {
+        "input_per_million": "3.000000",
+        "cached_input_per_million": "0.300000",
+        "output_per_million": "15.000000"
+      },
+      "claude-3-5-haiku-20241022": {
+        "input_per_million": "0.800000",
+        "cached_input_per_million": "0.080000",
+        "output_per_million": "4.000000"
+      }
+    },
+    "gemini": {
+      "gemini-2.5-flash": {
+        "input_per_million": "0.100000",
+        "cached_input_per_million": "0.025000",
+        "output_per_million": "0.400000"
+      },
+      "gemini-2.5-pro": {
+        "input_per_million": "1.250000",
+        "cached_input_per_million": "0.312500",
+        "output_per_million": "5.000000"
+      },
+      "gemini-2.0-flash": {
+        "input_per_million": "0.100000",
+        "cached_input_per_million": "0.025000",
+        "output_per_million": "0.400000"
+      },
+      "gemini-1.5-flash": {
+        "input_per_million": "0.075000",
+        "cached_input_per_million": "0.018750",
+        "output_per_million": "0.300000"
+      },
+      "gemini-1.5-pro": {
+        "input_per_million": "1.250000",
+        "cached_input_per_million": "0.312500",
+        "output_per_million": "5.000000"
+      }
+    },
+    "mock": {
+      "mock-model": {
+        "input_per_million": "0.000000",
+        "cached_input_per_million": "0.000000",
+        "output_per_million": "0.000000"
+      }
+    }
+  },
+  "fallback_rates": {
+    "input_per_million": "0.000000",
+    "cached_input_per_million": "0.000000",
+    "output_per_million": "0.000000"
+  }
+}

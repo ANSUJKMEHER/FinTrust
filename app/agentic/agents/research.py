@@ -99,40 +99,51 @@ class ResearchAgent(BaseAgent):
 
         for idx, result in enumerate(search_results, start=current_ev_count + 1):
             ev_id = f"EVIDENCE_{idx:03d}"
-            chunk_id_str = str(result.chunk_id)
-            doc_id_str = str(result.document_id)
+            
+            # Extract fields supporting both dict and object models
+            chunk_id_str = str(result.get("chunk_id") if isinstance(result, dict) else result.chunk_id)
+            doc_id_str = str(result.get("document_id") if isinstance(result, dict) else result.document_id)
+            doc_ver_id = result.get("document_version_id") if isinstance(result, dict) else getattr(result, "document_version_id", None)
+            doc_title = (result.get("document_title") if isinstance(result, dict) else getattr(result, "document_title", None)) or "Document"
+            doc_class = (result.get("document_classification") if isinstance(result, dict) else getattr(result, "document_classification", None)) or "INTERNAL"
+            pg_num = result.get("page_number") if isinstance(result, dict) else getattr(result, "page_number", None)
+            sec_heading = result.get("section_heading") if isinstance(result, dict) else getattr(result, "section_heading", None)
+            breadcrumb = result.get("heading_breadcrumb") if isinstance(result, dict) else getattr(result, "heading_breadcrumb", None)
+            content = (result.get("content") if isinstance(result, dict) else getattr(result, "content", "")) or ""
+            token_count = result.get("token_count") if isinstance(result, dict) else getattr(result, "token_count", len(content.split()))
+            score_val = result.get("rerank_score", result.get("score", result.get("rrf_score", 0.5))) if isinstance(result, dict) else getattr(result, "score", 0.5)
 
             # Format canonical citation label
-            sec = result.section_heading or "General"
-            pg = f"Page {result.page_number}" if result.page_number else "Page N/A"
-            citation_label = f"[{result.document_title}, {sec}, {pg}]"
+            sec = sec_heading or "General"
+            pg = f"Page {pg_num}" if pg_num else "Page N/A"
+            citation_label = f"[{doc_title}, {sec}, {pg}]"
 
             # Register in evidence registry
             evidence_registry[ev_id] = {
                 "evidence_id": ev_id,
                 "chunk_id": chunk_id_str,
                 "document_id": doc_id_str,
-                "document_version_id": str(result.document_version_id) if result.document_version_id else "",
-                "document_title": result.document_title,
-                "document_classification": result.document_classification,
-                "page_number": result.page_number,
-                "section_heading": result.section_heading,
-                "heading_breadcrumb": result.heading_breadcrumb,
-                "content": result.content,
-                "token_count": result.token_count,
-                "relevance_score": round(result.score, 4),
+                "document_version_id": str(doc_ver_id) if doc_ver_id else "",
+                "document_title": doc_title,
+                "document_classification": doc_class,
+                "page_number": pg_num,
+                "section_heading": sec_heading,
+                "heading_breadcrumb": breadcrumb,
+                "content": content,
+                "token_count": token_count,
+                "relevance_score": round(float(score_val), 4),
                 "citation_label": citation_label,
             }
 
             # Generate structured research finding
             finding: ResearchFinding = {
                 "finding_id": f"RES_{idx:03d}",
-                "topic": result.section_heading or result.document_title,
-                "summary": result.content[:250].strip() + ("..." if len(result.content) > 250 else ""),
+                "topic": sec_heading or doc_title,
+                "summary": content[:250].strip() + ("..." if len(content) > 250 else ""),
                 "supporting_evidence_ids": [ev_id],
                 "citations": [citation_label],
-                "relevance_score": round(result.score, 4),
-                "is_sufficient": result.score >= 0.35,
+                "relevance_score": round(float(score_val), 4),
+                "is_sufficient": float(score_val) >= 0.35,
                 "missing_aspects": [],
             }
             added_findings.append(finding)
@@ -147,7 +158,10 @@ class ResearchAgent(BaseAgent):
             outputs={
                 "retrieved_count": len(search_results),
                 "evidence_items_registered": len(added_findings),
-                "top_score": max((r.score for r in search_results), default=0.0)
+                "top_score": max(
+                    (float(r.get("rerank_score", r.get("score", r.get("rrf_score", 0.0))) if isinstance(r, dict) else getattr(r, "score", 0.0)) for r in search_results),
+                    default=0.0
+                )
             },
             status="SUCCESS",
             latency_ms=latency_ms,

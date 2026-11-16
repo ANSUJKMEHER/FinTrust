@@ -5,6 +5,7 @@ from app.llm.factory import get_llm_provider
 from app.llm.mock_provider import MockLLMProvider
 from app.llm.openai_provider import OpenAICompatibleProvider
 from app.llm.anthropic_provider import AnthropicProvider
+from app.llm.gemini_provider import GeminiProvider
 from app.llm.ollama_provider import OllamaProvider
 
 
@@ -39,6 +40,11 @@ def test_factory_resolves_all_providers():
     p_ollama = get_llm_provider("ollama", api_base="http://localhost:11434")
     assert isinstance(p_ollama, OllamaProvider)
 
+    # Gemini
+    p_gemini = get_llm_provider("gemini", api_key="test_gemini_key_12345")
+    assert isinstance(p_gemini, GeminiProvider)
+    assert p_gemini.provider_label == "gemini"
+
 
 def test_factory_unsupported_provider_raises_error():
     with pytest.raises(LLMConfigurationError) as exc_info:
@@ -56,3 +62,9 @@ def test_anthropic_missing_api_key_raises_configuration_error():
     with pytest.raises(LLMConfigurationError) as exc_info:
         AnthropicProvider(api_key="")
     assert "LLM_API_KEY" in str(exc_info.value)
+
+
+def test_gemini_missing_api_key_raises_configuration_error():
+    with pytest.raises(LLMConfigurationError) as exc_info:
+        GeminiProvider(api_key="")
+    assert "GEMINI_API_KEY" in str(exc_info.value)

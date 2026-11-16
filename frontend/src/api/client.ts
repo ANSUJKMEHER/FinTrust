@@ -10,6 +10,7 @@ import {
   DocumentItem,
   DocumentChunk,
   RAGQueryResponse,
+  Citation,
   CitationVerificationResponse,
   DocumentSummaryResponse,
   DocumentComparisonResponse,
@@ -62,15 +63,15 @@ class ApiClient {
   }
 
   // --- Auth & Tenant ---
-  async login(username: string, password: string):Promise<{ access_token: string; token_type: string }> {
-    const formData = new URLSearchParams();
-    formData.append('username', username);
-    formData.append('password', password);
-
+  async login(username: string, password: string, tenant_slug = 'fintrust-demo'): Promise<{ access_token: string; token_type: string }> {
     const res = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: formData.toString(),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: username,
+        password: password,
+        tenant_slug: tenant_slug
+      }),
     });
     const data = await this.handleResponse<{ access_token: string; token_type: string }>(res);
     localStorage.setItem('fintrust_access_token', data.access_token);
@@ -172,7 +173,24 @@ class ApiClient {
       headers: this.getHeaders(),
       body: JSON.stringify({ query, top_k: topK }),
     });
-    return this.handleResponse<RAGQueryResponse>(res);
+    const raw = await this.handleResponse<any>(res);
+
+    // Normalize backend response to frontend contract
+    const citations: Citation[] = raw.citations || [];
+    const validCount = citations.filter((c: any) => c.is_valid !== false).length;
+    const isRefusal = Boolean(raw.is_refusal || raw.sufficiency_status === 'INSUFFICIENT');
+
+    return {
+      query: raw.query || query,
+      answer: raw.answer || '',
+      evidence_sufficient: !isRefusal,
+      refusal_reason: isRefusal ? (raw.answer || 'Retrieved document chunks do not contain sufficient verified evidence to support a factual answer.') : undefined,
+      model_name: raw.model || raw.model_name || 'gemini-2.5-flash',
+      total_citations: citations.length,
+      valid_citations: validCount,
+      latency_ms: Math.round(raw.total_latency_ms || raw.latency_ms || raw.generation_latency_ms || 0),
+      citations: citations,
+    };
   }
 
   async verifyCitations(answerText: string, chunkIds: string[]): Promise<CitationVerificationResponse> {

@@ -6,6 +6,7 @@ Coordinates graph execution, state persistence, audit tracing, and human approva
 from typing import Dict, Any, Optional, List
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
+from decimal import Decimal
 import time
 import json
 import logging
@@ -17,6 +18,8 @@ from langgraph.checkpoint.memory import MemorySaver
 from app.agentic.state import AgenticWorkflowState
 from app.agentic.workflow import build_agentic_workflow_graph
 from app.agentic.mcp.context import mcp_execution_context
+from app.core.config import settings
+from app.services.cost_service import cost_service
 from app.db.models.user import User
 from app.db.models.workflow import (
     AgenticWorkflow,
@@ -158,6 +161,20 @@ class AgenticOrchestrator:
         for t in traces:
             step_num = t.get("step_number", 1)
             if step_num not in existing_step_numbers:
+                p_tokens = t.get("prompt_tokens", 0)
+                c_tokens = t.get("completion_tokens", 0)
+                cached_tokens = t.get("cached_prompt_tokens", 0)
+                prov = t.get("llm_provider", settings.LLM_PROVIDER)
+                mod = t.get("llm_model", settings.LLM_MODEL_NAME)
+
+                cost_info = cost_service.calculate_cost(
+                    provider=prov,
+                    model=mod,
+                    prompt_tokens=p_tokens,
+                    completion_tokens=c_tokens,
+                    cached_prompt_tokens=cached_tokens
+                )
+
                 trace_obj = AgenticExecutionTrace(
                     workflow_id=workflow.id,
                     step_number=step_num,
@@ -166,15 +183,38 @@ class AgenticOrchestrator:
                     inputs_redacted=t.get("input_payload", {}),
                     outputs_redacted=t.get("output_payload", {}),
                     status="COMPLETED",
+                    prompt_tokens=p_tokens,
+                    completion_tokens=c_tokens,
+                    cached_prompt_tokens=cached_tokens,
+                    llm_provider=prov,
+                    llm_model=mod,
+                    pricing_version=cost_info.pricing_version,
+                    input_cost=cost_info.input_cost,
+                    output_cost=cost_info.output_cost,
+                    total_cost=cost_info.total_cost,
                 )
                 self.db.add(trace_obj)
                 existing_step_numbers.add(step_num)
 
-        # Update Workflow metadata
+        # Flush new traces so aggregation query includes them
+        self.db.flush()
+
+        # Update Workflow metadata and aggregate total cost across all traces (prevent double counting)
+        workflow_traces = self.db.execute(
+            select(AgenticExecutionTrace).where(
+                AgenticExecutionTrace.workflow_id == workflow.id
+            )
+        ).scalars().all()
+
+        total_cost = sum((t.total_cost for t in workflow_traces), start=Decimal("0.000000"))
+
         workflow.execution_plan = state.get("execution_plan", [])
         workflow.selected_agents = state.get("selected_agents", [])
         workflow.iteration_count = state.get("iteration_count", 0)
         workflow.total_tokens_used = state.get("total_tokens_used", 0)
+        workflow.total_estimated_cost = total_cost
+        workflow.llm_provider = settings.LLM_PROVIDER
+        workflow.llm_model = settings.LLM_MODEL_NAME
         workflow.execution_latency_ms = latency_ms
         workflow.final_report = state.get("final_report")
         workflow.state_snapshot = self._sanitize_state_for_persistence(state)

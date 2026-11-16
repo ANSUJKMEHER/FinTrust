@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from decimal import Decimal
 import logging
 import time
 from typing import Any, Dict, List, Optional
@@ -9,6 +10,7 @@ from app.llm.base import BaseLLMProvider, LLMMessage, LLMResponse, MessageRole
 from app.llm.factory import get_llm_provider
 from app.services.citation_service import CitationExtractionResult, CitationService, VerifiedCitation
 from app.services.context_construction_service import StructuredContext
+from app.services.cost_service import cost_service
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +45,8 @@ class GroundedGenerationResult:
     completion_tokens: int
     total_tokens: int
     generation_latency_ms: float
+    estimated_cost: Decimal = Decimal("0.000000")
+    pricing_version: Optional[str] = None
     raw_response_metadata: Dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -120,6 +124,13 @@ class GroundedGenerationService:
 
         total_latency_ms = (time.perf_counter() - start_time) * 1000.0
 
+        cost_breakdown = cost_service.calculate_cost(
+            provider=llm_resp.provider,
+            model=llm_resp.model,
+            prompt_tokens=llm_resp.prompt_tokens,
+            completion_tokens=llm_resp.completion_tokens,
+        )
+
         return GroundedGenerationResult(
             answer=answer_text,
             is_refusal=is_refusal,
@@ -132,6 +143,8 @@ class GroundedGenerationService:
             prompt_tokens=llm_resp.prompt_tokens,
             completion_tokens=llm_resp.completion_tokens,
             total_tokens=llm_resp.total_tokens,
+            estimated_cost=cost_breakdown.total_cost,
+            pricing_version=cost_breakdown.pricing_version,
             generation_latency_ms=total_latency_ms,
             raw_response_metadata=llm_resp.raw_metadata
         )

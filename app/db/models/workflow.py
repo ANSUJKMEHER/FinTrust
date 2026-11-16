@@ -2,6 +2,7 @@
 Database models for Phase 5 Agentic Workflows, Human Approval, and Execution Tracing.
 """
 from datetime import datetime, timezone
+from decimal import Decimal
 import enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 import uuid
@@ -13,6 +14,7 @@ from sqlalchemy import (
     Index,
     Integer,
     JSON,
+    Numeric,
     String,
     Text,
 )
@@ -107,10 +109,13 @@ class AgenticWorkflow(Base):
     reviewer_comments: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    # Iteration & token accounting
+    # Iteration, token & monetary cost accounting
     iteration_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     max_iterations: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
     total_tokens_used: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_estimated_cost: Mapped[Decimal] = mapped_column(Numeric(14, 6), default=Decimal("0.000000"), nullable=False)
+    llm_provider: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    llm_model: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     execution_latency_ms: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
@@ -169,6 +174,13 @@ class AgenticExecutionTrace(Base):
     status: Mapped[str] = mapped_column(String(50), default="SUCCESS", nullable=False)
     prompt_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     completion_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    cached_prompt_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    llm_provider: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    llm_model: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    pricing_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    input_cost: Mapped[Decimal] = mapped_column(Numeric(14, 6), default=Decimal("0.000000"), nullable=False)
+    output_cost: Mapped[Decimal] = mapped_column(Numeric(14, 6), default=Decimal("0.000000"), nullable=False)
+    total_cost: Mapped[Decimal] = mapped_column(Numeric(14, 6), default=Decimal("0.000000"), nullable=False)
     latency_ms: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     error_details: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

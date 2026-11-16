@@ -5,6 +5,7 @@ services:
     image: pgvector/pgvector:pg16
     container_name: fintrust_postgres
     restart: unless-stopped
+    command: postgres -c max_connections=100 -c shared_buffers=256MB
     environment:
       POSTGRES_USER: fintrust_user
       POSTGRES_PASSWORD: fintrust_secure_password
@@ -19,6 +20,32 @@ services:
       timeout: 5s
       retries: 5
 
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: fintrust_pgbouncer
+    restart: unless-stopped
+    environment:
+      - DB_USER=fintrust_user
+      - DB_PASSWORD=fintrust_secure_password
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=fintrust_db
+      - POOL_MODE=transaction
+      - MAX_CLIENT_CONN=1000
+      - DEFAULT_POOL_SIZE=25
+      - MIN_POOL_SIZE=5
+      - RESERVE_POOL_SIZE=5
+      - MAX_DB_CONNECTIONS=80
+      - AUTH_TYPE=scram-sha-256
+    ports:
+      - "6432:6432"
+    volumes:
+      - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   backend:
     build:
       context: .
@@ -26,7 +53,9 @@ services:
     container_name: fintrust_backend
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://fintrust_user:fintrust_secure_password@postgres:5432/fintrust_db
+      - DATABASE_URL=postgresql://fintrust_user:fintrust_secure_password@pgbouncer:6432/fintrust_db
+      - USE_PGBOUNCER=true
+      - PGBOUNCER_PORT=6432
       - JWT_SECRET_KEY=production_grade_secret_key_change_me_to_64_random_bytes_min
       - ENVIRONMENT=development
       - DEBUG=true
@@ -35,6 +64,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      pgbouncer:
+        condition: service_started
     volumes:
       - .:/app
 

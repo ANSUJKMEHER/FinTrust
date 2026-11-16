@@ -192,7 +192,7 @@ export const Research: React.FC = () => {
                       <div className="text-[10px] font-mono text-fintrust-slate uppercase font-semibold mb-1.5 flex items-center justify-between">
                         <span>Verified Citations ({msg.response.citations.length})</span>
                         <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">
-                          {msg.response.valid_citations}/{msg.response.total_citations} Verified
+                          {msg.response.valid_citations ?? msg.response.citations.length}/{msg.response.total_citations ?? msg.response.citations.length} Verified
                         </span>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
@@ -218,9 +218,9 @@ export const Research: React.FC = () => {
                   {/* Latency & Telemetry */}
                   {msg.response && (
                     <div className="mt-2 text-[10px] font-mono text-fintrust-slate flex items-center gap-3">
-                      <span>Model: {msg.response.model_name}</span>
+                      <span>Model: {msg.response.model_name || 'gemini-2.5-flash'}</span>
                       <span>·</span>
-                      <span>Latency: {msg.response.latency_ms}ms</span>
+                      <span>Latency: {msg.response.latency_ms ?? 0}ms</span>
                     </div>
                   )}
                 </div>

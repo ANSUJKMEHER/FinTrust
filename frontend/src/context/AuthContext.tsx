@@ -8,7 +8,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, pass: string) => Promise<void>;
+  login: (email: string, pass: string, tenant_slug?: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -64,11 +64,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [fetchSessionData]);
 
-  const login = async (username: string, pass: string) => {
+  const login = async (username: string, pass: string, tenant_slug = 'fintrust-demo') => {
     setIsLoading(true);
     setError(null);
     try {
-      await api.login(username, pass);
+      await api.login(username, pass, tenant_slug);
       await fetchSessionData();
     } catch (err: any) {
       setError(err.message || 'Login failed. Please check your credentials.');

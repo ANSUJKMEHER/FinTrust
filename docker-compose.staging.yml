@@ -1,0 +1,154 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: fintrust_staging_postgres
+    restart: unless-stopped
+    command: postgres -c max_connections=100 -c shared_buffers=512MB -c effective_cache_size=1536MB -c work_mem=16MB
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fintrust_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fintrust_secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-fintrust_db}
+    volumes:
+      - staging_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fintrust_user} -d ${POSTGRES_DB:-fintrust_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fintrust_staging_net
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: fintrust_staging_pgbouncer
+    restart: unless-stopped
+    environment:
+      - DB_USER=${POSTGRES_USER:-fintrust_user}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-fintrust_secure_password}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${POSTGRES_DB:-fintrust_db}
+      - POOL_MODE=transaction
+      - MAX_CLIENT_CONN=1000
+      - DEFAULT_POOL_SIZE=25
+      - MIN_POOL_SIZE=5
+      - RESERVE_POOL_SIZE=5
+      - MAX_DB_CONNECTIONS=80
+      - AUTH_TYPE=scram-sha-256
+    volumes:
+      - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    ports:
+      - "6432:6432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - fintrust_staging_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: fintrust_staging_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-fintrust_redis_secure_pass}
+    volumes:
+      - staging_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-fintrust_redis_secure_pass}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fintrust_staging_net
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fintrust_staging_backend
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-fintrust_user}:${POSTGRES_PASSWORD:-fintrust_secure_password}@pgbouncer:6432/${POSTGRES_DB:-fintrust_db}
+      - USE_PGBOUNCER=true
+      - PGBOUNCER_PORT=6432
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-insecure_placeholder_must_be_overridden_in_env_file_with_64_bytes}
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_MODEL_NAME=${LLM_MODEL_NAME:-gpt-4o-mini}
+      - RATE_LIMIT_ENABLED=true
+    volumes:
+      - staging_document_storage:/app/storage/documents
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    networks:
+      - fintrust_staging_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fintrust_staging_frontend
+    restart: unless-stopped
+    networks:
+      - fintrust_staging_net
+
+  nginx:
+    image: nginx:alpine
+    container_name: fintrust_staging_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/staging/nginx_staging.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/staging/certs:/etc/nginx/certs:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - fintrust_staging_net
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: fintrust_staging_prometheus
+    restart: unless-stopped
+    volumes:
+      - ./deploy/staging/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - staging_prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - fintrust_staging_net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: fintrust_staging_grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-fintrust_grafana_admin_pass}
+    volumes:
+      - staging_grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - fintrust_staging_net
+
+networks:
+  fintrust_staging_net:
+    driver: bridge
+
+volumes:
+  staging_postgres_data:
+  staging_redis_data:
+  staging_document_storage:
+  staging_prometheus_data:
+  staging_grafana_data:

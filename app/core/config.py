@@ -78,6 +78,7 @@ class Settings(BaseSettings):
     LLM_PROVIDER: str = "mock"  # Default to mock in development/testing; production overrides via env
     LLM_MODEL_NAME: str = "gpt-4o-mini"
     LLM_API_KEY: Optional[str] = None
+    GEMINI_API_KEY: Optional[str] = None
     LLM_API_BASE: Optional[str] = None
     LLM_TEMPERATURE: float = 0.0  # Zero temperature for deterministic compliance responses
     LLM_MAX_TOKENS: int = 1500
@@ -90,9 +91,12 @@ class Settings(BaseSettings):
     RAG_SUFFICIENCY_MIN_SCORE: float = 0.30
     RAG_REFUSAL_MESSAGE: str = "The provided documents do not contain sufficient evidence to answer this question reliably."
 
-    # Production Database Pool Tuning
-    DB_POOL_SIZE: int = 20
-    DB_MAX_OVERFLOW: int = 10
+    # Production Database Pool Tuning & PgBouncer
+    USE_PGBOUNCER: bool = False
+    PGBOUNCER_PORT: int = 6432
+    PGBOUNCER_POOL_MODE: str = "transaction"
+    DB_POOL_SIZE: int = 30
+    DB_MAX_OVERFLOW: int = 70
     DB_POOL_TIMEOUT: int = 30
     DB_POOL_RECYCLE: int = 1800
 
@@ -105,7 +109,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_production_configuration(self) -> "Settings":
         if self.ENVIRONMENT.lower() in ("production", "prod"):
-            # Enforce JWT Secret Key length and complexity
+            # 1. Enforce JWT Secret Key length and complexity
             if len(self.JWT_SECRET_KEY) < 32:
                 raise ValueError("In production, JWT_SECRET_KEY must be at least 32 characters long.")
             insecure_markers = ["insecure", "default", "change_in_production", "dev_secret", "secret123"]
@@ -115,6 +119,21 @@ class Settings(BaseSettings):
                 raise ValueError("In production, DEBUG must be set to False.")
             if not self.POSTGRES_PASSWORD or len(self.POSTGRES_PASSWORD) < 8:
                 raise ValueError("In production, POSTGRES_PASSWORD must be configured and at least 8 characters.")
+
+            # 2. Reject Mock LLM in Production
+            mock_markers = ("mock", "fake", "dummy", "test", "none", "")
+            if self.LLM_PROVIDER.lower().strip() in mock_markers:
+                raise ValueError(
+                    "In production, LLM_PROVIDER cannot be 'mock'. A valid commercial LLM provider "
+                    "(e.g., 'openai', 'anthropic', 'vllm') must be configured."
+                )
+
+            # 3. Enforce API credentials for commercial providers (without exposing keys)
+            if self.LLM_PROVIDER.lower().strip() in ("openai", "anthropic", "gemini", "google"):
+                if not self.LLM_API_KEY or len(self.LLM_API_KEY.strip()) < 8:
+                    raise ValueError(
+                        f"In production, LLM_API_KEY must be configured for provider '{self.LLM_PROVIDER}'."
+                    )
         return self
 
     model_config = SettingsConfigDict(

@@ -16,7 +16,15 @@ engine_kwargs = {
 if database_url.startswith("sqlite"):
     connect_args["check_same_thread"] = False
 else:
-    # Production PostgreSQL connection pool hardening
+    # Transaction pooling & PgBouncer hardening
+    # 1. Disable server-side named prepared statements in psycopg2 to avoid
+    #    "prepared statement does not exist" or statement collision errors across pooled transactions
+    connect_args["prepare_threshold"] = None
+
+    # 2. Reset connection on return to pool to ensure uncommitted transactions do not bleed
+    engine_kwargs["pool_reset_on_return"] = "rollback"
+
+    # 3. Connection pool sizing
     engine_kwargs.update({
         "pool_size": settings.DB_POOL_SIZE,
         "max_overflow": settings.DB_MAX_OVERFLOW,

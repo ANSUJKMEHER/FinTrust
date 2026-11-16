@@ -47,6 +47,9 @@ def _map_workflow_to_response(wf) -> AgenticWorkflowResponse:
         iteration_count=wf.iteration_count or 0,
         max_iterations=wf.max_iterations or 5,
         total_tokens_used=wf.total_tokens_used or 0,
+        total_estimated_cost=float(wf.total_estimated_cost or 0.0),
+        llm_provider=wf.llm_provider,
+        llm_model=wf.llm_model,
         execution_latency_ms=float(wf.execution_latency_ms or 0.0),
         selected_agents=wf.selected_agents or [],
         execution_plan=wf.execution_plan or [],
@@ -362,6 +365,7 @@ def get_workflow_trace(
 
     total_tokens = sum((t.prompt_tokens or 0) + (t.completion_tokens or 0) for t in traces)
     total_latency = sum(t.latency_ms or 0.0 for t in traces)
+    total_cost = sum(float(t.total_cost or 0.0) for t in traces)
 
     trace_items = [
         WorkflowTraceItemResponse(
@@ -374,6 +378,13 @@ def get_workflow_trace(
             latency_ms=float(t.latency_ms or 0.0),
             prompt_tokens=t.prompt_tokens or 0,
             completion_tokens=t.completion_tokens or 0,
+            cached_prompt_tokens=getattr(t, "cached_prompt_tokens", 0) or 0,
+            llm_provider=getattr(t, "llm_provider", None),
+            llm_model=getattr(t, "llm_model", None),
+            pricing_version=getattr(t, "pricing_version", None),
+            input_cost=float(getattr(t, "input_cost", 0.0) or 0.0),
+            output_cost=float(getattr(t, "output_cost", 0.0) or 0.0),
+            total_cost=float(getattr(t, "total_cost", 0.0) or 0.0),
             error_details=t.error_details,
             timestamp=t.created_at.isoformat() if t.created_at else "",
         )
@@ -385,6 +396,7 @@ def get_workflow_trace(
         total_steps=len(trace_items),
         total_tokens=total_tokens,
         total_latency_ms=float(total_latency),
+        total_estimated_cost=float(total_cost),
         traces=trace_items,
     )
 

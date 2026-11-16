@@ -55,6 +55,13 @@ class WorkflowTraceItemResponse(BaseModel):
     latency_ms: float
     prompt_tokens: int
     completion_tokens: int
+    cached_prompt_tokens: int = 0
+    llm_provider: Optional[str] = None
+    llm_model: Optional[str] = None
+    pricing_version: Optional[str] = None
+    input_cost: float = 0.0
+    output_cost: float = 0.0
+    total_cost: float = 0.0
     error_details: Optional[str]
     timestamp: str
 
@@ -64,6 +71,7 @@ class WorkflowTraceResponse(BaseModel):
     total_steps: int
     total_tokens: int
     total_latency_ms: float
+    total_estimated_cost: float = 0.0
     traces: List[WorkflowTraceItemResponse]
 
 
@@ -78,6 +86,9 @@ class AgenticWorkflowResponse(BaseModel):
     iteration_count: int
     max_iterations: int
     total_tokens_used: int
+    total_estimated_cost: float = 0.0
+    llm_provider: Optional[str] = None
+    llm_model: Optional[str] = None
     execution_latency_ms: float
     selected_agents: Optional[List[str]] = None
     execution_plan: Optional[List[Dict[str, Any]]] = None
