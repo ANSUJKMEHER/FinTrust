@@ -51,7 +51,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U fintrust_user -d fintrust_db"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -93,7 +93,7 @@ jobs:
           POSTGRES_DB: fintrust_db
           DATABASE_URL: postgresql://fintrust_user:fintrust_secure_ci_password@localhost:5432/fintrust_db
           JWT_SECRET_KEY: ci_secret_key_testing_purposes_only_min_32_characters_long
-          FINTRUST_USE_MOCK_EMBEDDINGS: "0"
+          FINTRUST_USE_MOCK_EMBEDDINGS: "1"
         run: |
           python -m pytest app/tests -v --junitxml=test-results.xml
 

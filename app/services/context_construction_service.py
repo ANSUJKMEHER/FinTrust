@@ -79,7 +79,7 @@ class ContextConstructionService:
     def _content_fingerprint(text: str) -> str:
         """Generates a normalized fingerprint for deduplication."""
         normalized = " ".join(re.findall(r'\b\w+\b', text.lower()))
-        return hashlib.md5(normalized.encode("utf-8")).hexdigest()
+        return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
     def build_context(
         self,

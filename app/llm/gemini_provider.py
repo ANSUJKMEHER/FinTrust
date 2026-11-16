@@ -39,8 +39,11 @@ class GeminiProvider(BaseLLMProvider):
         provider_label: str = "gemini"
     ):
         self.provider_label = provider_label
-        # Check GEMINI_API_KEY first, fallback to settings.LLM_API_KEY
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY") or getattr(settings, "GEMINI_API_KEY", None) or settings.LLM_API_KEY
+        # If api_key is explicitly provided (even empty string in tests), respect it
+        resolved_key = api_key if api_key is not None else (
+            os.getenv("GEMINI_API_KEY") or getattr(settings, "GEMINI_API_KEY", None) or settings.LLM_API_KEY
+        )
+        self.api_key = resolved_key
         self.api_base = (api_base or self.DEFAULT_API_BASE).rstrip("/")
         raw_model = model_name or getattr(settings, "LLM_MODEL_NAME", None) or os.getenv("GEMINI_MODEL") or os.getenv("LLM_MODEL_NAME") or self.DEFAULT_MODEL
         # Normalize if deprecated 2.0-flash is configured
