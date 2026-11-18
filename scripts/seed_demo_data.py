@@ -58,7 +58,7 @@ def seed_demo_environment():
         users_to_seed = [
             {
                 "email": "admin@fintrust.com",
-                "full_name": "Alexander Hamilton (Admin)",
+                "full_name": "Ansuj",
                 "password": "FinTrustAdmin2026!",
                 "roles": [role_admin, role_co]
             },
